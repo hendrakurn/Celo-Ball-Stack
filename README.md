@@ -34,3 +34,18 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+Ringkas: fungsi tiap file di folder game
+
+ball.tsx: Menangani representasi bola — posisi, rotasi, dan efek skala saat kontak. Lihat ball.tsx.
+
+crash-burst.tsx: Visual effect/partikel ledakan saat platform dihancurkan (burst). Lihat crash-burst.tsx.
+
+game-types.ts: Tipe TypeScript untuk runtime game, platform, segmen, dan payload scoring. Lihat game-types.ts.
+
+helix-tower.tsx: Menggambar menara helix dan platformnya, termasuk rotasi dan mesh segmen (safe/danger). Lihat helix-tower.tsx.
+
+stack-ball-engine.tsx: Logika permainan utama — fisika bola, deteksi tabrakan, scoring, status game, dan snapshot/publish state. Lihat stack-ball-engine.tsx.
+
+stack-ball-entry.tsx: Komponen pembungkus/entry point UI untuk memulai game (controls, layout, atau integrasi halaman). Lihat stack-ball-entry.tsx.

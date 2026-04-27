@@ -22,5 +22,411 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+
+.stackball-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255, 219, 188, 0.65), transparent 34%),
+    linear-gradient(180deg, #fff7ef 0%, #ffd2a9 45%, #ff9950 100%);
+}
+
+.stackball-panel {
+  width: min(100%, 980px);
+  display: grid;
+  gap: 18px;
+}
+
+.stackball-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stackball-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: rgba(63, 29, 10, 0.62);
+}
+
+.stackball-title {
+  margin: 4px 0 0;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  line-height: 0.96;
+  color: #2d1306;
+}
+
+.stackball-reset,
+.stackball-overlayButton {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.25rem;
+  font: inherit;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #1f1310, #502d0f);
+  box-shadow: 0 14px 30px rgba(54, 22, 6, 0.2);
+}
+
+.stackball-stage {
+  position: relative;
+  overflow: hidden;
+  height: min(74vh, 760px);
+  border-radius: 36px;
+  background:
+    linear-gradient(180deg, rgba(255, 247, 240, 0.98), rgba(255, 215, 189, 0.9)),
+    linear-gradient(180deg, #ffffff, #ffe5d1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 30px 80px rgba(95, 43, 12, 0.22);
+  touch-action: none;
+  user-select: none;
+}
+
+.stackball-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0) 0 32%, rgba(113, 36, 0, 0.045) 32.5% 33.5%, rgba(255, 255, 255, 0) 34%);
+  pointer-events: none;
+}
+
+.stackball-hud {
+  position: absolute;
+  inset: 20px 20px auto;
+  z-index: 4;
+  display: flex;
+  gap: 10px;
+}
+
+.stackball-stat {
+  min-width: 92px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  color: #341505;
+}
+
+.stackball-stat strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.stackball-statLabel {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(52, 21, 5, 0.64);
+}
+
+.stackball-meter {
+  position: absolute;
+  top: 98px;
+  left: 20px;
+  right: 20px;
+  height: 12px;
+  z-index: 4;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(57, 24, 10, 0.12);
+}
+
+.stackball-meterFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff8e3c, #ff5232);
+  transition: width 120ms linear;
+}
+
+.stackball-meterFill.is-invincible {
+  background: linear-gradient(90deg, #ff1d38, #ff6f61);
+}
+
+.stackball-statusPill {
+  position: absolute;
+  top: 118px;
+  left: 20px;
+  z-index: 4;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #55200b;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.stackball-shaft {
+  position: absolute;
+  top: 104px;
+  bottom: 42px;
+  left: 50%;
+  width: 18px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f9f9f9, #f0c7ad 50%, #f4f4f4);
+  box-shadow:
+    inset 0 0 0 1px rgba(101, 51, 23, 0.08),
+    0 0 60px rgba(255, 255, 255, 0.55);
+}
+
+.stackball-platform {
+  position: absolute;
+  left: 50%;
+  margin-left: calc(var(--platform-offset, 0px));
+  transform-origin: center center;
+  opacity: 1;
+  transition:
+    opacity 220ms ease,
+    transform 180ms linear;
+}
+
+.stackball-platform.is-destroyed {
+  opacity: 0;
+}
+
+.stackball-platformRing {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  box-shadow:
+    0 22px 30px rgba(90, 33, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  -webkit-mask: radial-gradient(circle, transparent 0 41%, black 41.5%);
+  mask: radial-gradient(circle, transparent 0 41%, black 41.5%);
+}
+
+.stackball-ball {
+  position: absolute;
+  left: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 30% 30%, #ffffff, #ffcc4d 42%, #ff763c 100%);
+  box-shadow:
+    0 18px 28px rgba(93, 26, 0, 0.24),
+    0 0 0 10px rgba(255, 161, 70, 0.1);
+  z-index: 3;
+  transition:
+    transform 120ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.stackball-ball.is-pressed {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+
+.stackball-ball.is-invincible {
+  background: radial-gradient(circle at 30% 30%, #fff1f2, #ff5f5f 46%, #d50028 100%);
+  box-shadow:
+    0 18px 28px rgba(118, 0, 32, 0.28),
+    0 0 0 18px rgba(255, 36, 72, 0.14);
+}
+
+.stackball-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(255, 248, 242, 0.45);
+  backdrop-filter: blur(12px);
+}
+
+.stackball-overlayKicker {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(76, 31, 10, 0.64);
+}
+
+.stackball-overlayTitle {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  line-height: 1;
+  color: #2b1206;
+}
+
+.stackball-overlayButton {
+  justify-self: center;
+  margin-top: 8px;
+}
+
+.stackball-footer {
+  display: grid;
+  gap: 6px;
+  color: #51210a;
+}
+
+.stackball-footer p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .stackball-shell {
+    padding: 14px;
+  }
+
+  .stackball-stage {
+    height: 72vh;
+    border-radius: 28px;
+  }
+
+  .stackball-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stackball-hud {
+    right: 20px;
+    flex-wrap: wrap;
+  }
+
+  .stackball-stat {
+    min-width: 84px;
+  }
+}
+
+.stackball-engine {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(11, 18, 32, 0.2), rgba(0, 0, 0, 0.8)),
+    #07111f;
+  touch-action: none;
+  user-select: none;
+}
+
+.stackball-engineCanvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.stackball-engineHud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  color: #e5f7ff;
+}
+
+.stackball-engineHud div {
+  min-width: 88px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(12px);
+}
+
+.stackball-engineHud span {
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: #8bd6ff;
+}
+
+.stackball-engineHud strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.25rem;
+}
+
+.stackball-engineMeter {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 24px;
+  z-index: 2;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.14);
+}
+
+.stackball-engineMeter div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22d3ee, #84cc16);
+  transition: width 120ms linear;
+}
+
+.stackball-engineMeter div.is-invincible {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.stackball-engineOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  background: rgba(2, 6, 23, 0.1);
+  color: #f8fafc;
+  text-align: center;
+  pointer-events: none;
+}
+
+.stackball-engineOverlay p {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 4.8rem);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.stackball-engineOverlay button {
+  justify-self: center;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 0.85rem 1.2rem;
+  background: #f8fafc;
+  color: #020617;
+  font: inherit;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .stackball-engineHud {
+    right: 12px;
+    left: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stackball-engineHud div {
+    min-width: 78px;
+    flex: 1;
+  }
+
+  .stackball-engineMeter {
+    right: 12px;
+    left: 12px;
+  }
 }
