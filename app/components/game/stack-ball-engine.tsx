@@ -502,8 +502,7 @@ export function StackBallEngine({
         camera={{ position: [0, 3.4, 7.2], fov: 42 }}
         className="stackball-engineCanvas"
       >
-        <color attach="background" args={["#07111f"]} />
-        <fog attach="fog" args={["#07111f", 7, 18]} />
+        <fog attach="fog" args={["#8ed8ff", 8, 18]} />
         <GameScene
           level={level}
           snapshot={snapshot}

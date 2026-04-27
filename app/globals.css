@@ -314,15 +314,30 @@ button {
   min-height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(11, 18, 32, 0.2), rgba(0, 0, 0, 0.8)),
-    #07111f;
+    radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.48), transparent 13%),
+    radial-gradient(circle at 71% 10%, rgba(255, 255, 255, 0.42), transparent 15%),
+    linear-gradient(180deg, #72cdf8 0%, #8ed8ff 48%, #c9efff 100%);
   touch-action: none;
   user-select: none;
+}
+
+.stackball-engine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 14% 25%, rgba(255, 255, 255, 0.7) 0 8%, transparent 18%),
+    radial-gradient(ellipse at 34% 20%, rgba(255, 255, 255, 0.5) 0 5%, transparent 13%),
+    radial-gradient(ellipse at 73% 28%, rgba(255, 255, 255, 0.55) 0 7%, transparent 16%);
+  opacity: 0.72;
 }
 
 .stackball-engineCanvas {
   position: absolute !important;
   inset: 0;
+  z-index: 1;
 }
 
 .stackball-engineHud {
@@ -332,16 +347,17 @@ button {
   z-index: 2;
   display: flex;
   gap: 10px;
-  color: #e5f7ff;
+  color: #0f3f5d;
 }
 
 .stackball-engineHud div {
   min-width: 88px;
   padding: 10px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 8px;
-  background: rgba(2, 6, 23, 0.58);
+  background: rgba(255, 255, 255, 0.56);
   backdrop-filter: blur(12px);
+  box-shadow: 0 14px 32px rgba(31, 122, 176, 0.16);
 }
 
 .stackball-engineHud span {
@@ -349,7 +365,7 @@ button {
   font-size: 0.7rem;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: #8bd6ff;
+  color: rgba(15, 63, 93, 0.68);
 }
 
 .stackball-engineHud strong {
@@ -367,7 +383,7 @@ button {
   height: 10px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(226, 232, 240, 0.14);
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .stackball-engineMeter div {
@@ -388,8 +404,8 @@ button {
   display: grid;
   place-content: center;
   gap: 14px;
-  background: rgba(2, 6, 23, 0.1);
-  color: #f8fafc;
+  background: rgba(125, 205, 246, 0.08);
+  color: #0f3f5d;
   text-align: center;
   pointer-events: none;
 }
@@ -404,13 +420,14 @@ button {
 .stackball-engineOverlay button {
   justify-self: center;
   pointer-events: auto;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 8px;
   padding: 0.85rem 1.2rem;
-  background: #f8fafc;
-  color: #020617;
+  background: #ffffff;
+  color: #0f3f5d;
   font: inherit;
   font-weight: 800;
+  box-shadow: 0 14px 30px rgba(31, 122, 176, 0.18);
 }
 
 @media (max-width: 640px) {
