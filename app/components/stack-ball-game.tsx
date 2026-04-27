@@ -13,6 +13,7 @@ type Platform = {
   y: number;
   rotation: number;
   rotationSpeed: number;
+  cleared: boolean;
   destroyed: boolean;
   segments: PlatformSegment[];
 };
@@ -90,26 +91,20 @@ function getSegmentAtAngle(platform: Platform, angle: number) {
 function createPlatform(index: number, level: number): Platform {
   const slotCount = 8;
   const step = 360 / slotCount;
-  const segmentWidth = 30;
-  const gapIndex = (index * 3 + level) % slotCount;
+  const segmentWidth = step;
+  const dangerAnchor = (index * 3 + level) % slotCount;
   const dangerCount = Math.min(3, 1 + Math.floor((level + index) / 4));
   const dangerIndexes = new Set<number>();
 
   for (let offset = 0; offset < slotCount && dangerIndexes.size < dangerCount; offset++) {
-    const candidate = (gapIndex + 2 + offset * 2) % slotCount;
+    const candidate = (dangerAnchor + offset * 2) % slotCount;
 
-    if (candidate !== gapIndex) {
-      dangerIndexes.add(candidate);
-    }
+    dangerIndexes.add(candidate);
   }
 
   const segments: PlatformSegment[] = [];
 
   for (let slot = 0; slot < slotCount; slot++) {
-    if (slot === gapIndex) {
-      continue;
-    }
-
     const center = slot * step;
     const start = normalizeAngle(center - segmentWidth / 2);
     const end = normalizeAngle(center + segmentWidth / 2);
@@ -126,6 +121,7 @@ function createPlatform(index: number, level: number): Platform {
     y: (index + 1) * PLATFORM_SPACING,
     rotation: (index * 33) % 360,
     rotationSpeed: index % 2 === 0 ? 38 + index * 1.8 : -42 - index * 1.6,
+    cleared: false,
     destroyed: false,
     segments,
   };
@@ -217,15 +213,18 @@ export function StackBallGame() {
         state.ballY += state.ballVelocity * dt;
 
         const platforms = state.platforms
-          .filter((platform) => platform.destroyed === false)
+          .filter((platform) => platform.cleared === false)
           .sort((left, right) => left.y - right.y);
 
         for (const platform of platforms) {
-          const crossedPlatform =
+          const crossedDown =
             previousBallY + BALL_RADIUS <= platform.y + COLLISION_EPSILON &&
             state.ballY + BALL_RADIUS >= platform.y - COLLISION_EPSILON;
+          const crossedUp =
+            previousBallY - BALL_RADIUS >= platform.y - COLLISION_EPSILON &&
+            state.ballY - BALL_RADIUS <= platform.y + COLLISION_EPSILON;
 
-          if (crossedPlatform === false) {
+          if (crossedDown === false && crossedUp === false) {
             continue;
           }
 
@@ -233,6 +232,7 @@ export function StackBallGame() {
           const segment = getSegmentAtAngle(platform, angle);
 
           if (!segment) {
+            platform.cleared = true;
             platform.destroyed = true;
             state.destroyedCount += 1;
 
@@ -244,6 +244,13 @@ export function StackBallGame() {
             }
 
             continue;
+          }
+
+          if (crossedUp) {
+            state.ballY = platform.y + BALL_RADIUS;
+            state.ballVelocity = Math.abs(BOUNCE_VELOCITY) * 0.65;
+            state.streak = 0;
+            break;
           }
 
           if (state.isPressing) {
@@ -264,6 +271,7 @@ export function StackBallGame() {
               break;
             }
 
+            platform.cleared = true;
             platform.destroyed = true;
             state.destroyedCount += 1;
             state.streak += 1;

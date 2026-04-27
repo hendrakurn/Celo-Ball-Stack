@@ -19,6 +19,7 @@ type HelixTowerProps = {
   crashBursts: CrashBurstType[];
   towerRotationRef: RefObject<number>;
   displayScale: number;
+  finishY: number;
 };
 
 const OUTER_RADIUS = 2.15;
@@ -44,6 +45,29 @@ function createSegmentGeometry(segment: HelixSegment) {
     bevelSegments: 2,
     curveSegments: 24,
   });
+  geometry.translate(0, 0, -PLATFORM_THICKNESS / 2);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+function createFinishGeometry() {
+  const shape = new Shape();
+
+  shape.absarc(0, 0, OUTER_RADIUS, 0, Math.PI * 2, false);
+  shape.lineTo(INNER_RADIUS * Math.cos(Math.PI * 2), INNER_RADIUS * Math.sin(Math.PI * 2));
+  shape.absarc(0, 0, INNER_RADIUS, Math.PI * 2, 0, true);
+  shape.closePath();
+
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: PLATFORM_THICKNESS,
+    bevelEnabled: true,
+    bevelSize: 0.035,
+    bevelThickness: 0.035,
+    bevelSegments: 2,
+    curveSegments: 48,
+  });
+
   geometry.translate(0, 0, -PLATFORM_THICKNESS / 2);
   geometry.computeVertexNormals();
 
@@ -93,8 +117,24 @@ export function HelixTower({
   crashBursts,
   towerRotationRef,
   displayScale,
+  finishY,
 }: HelixTowerProps) {
   const towerRef = useRef<Group>(null);
+  const finishGeometry = useMemo(() => createFinishGeometry(), []);
+  const finishMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: "#facc15",
+        emissive: "#f59e0b",
+        emissiveIntensity: 0.18,
+        roughness: 0.36,
+        metalness: 0.18,
+      }),
+    [],
+  );
+  const highestY = level[0]?.y ?? 0;
+  const poleHeight = Math.max(6, Math.abs(highestY - finishY) * displayScale + 5);
+  const poleCenterY = ((highestY + finishY) * displayScale) / 2;
 
   useFrame((_, delta) => {
     const tower = towerRef.current;
@@ -109,8 +149,8 @@ export function HelixTower({
 
   return (
     <group ref={towerRef}>
-      <mesh position={[0, -4.6, 0]} receiveShadow>
-        <cylinderGeometry args={[0.22, 0.22, 18, 32]} />
+      <mesh position={[0, poleCenterY, 0]} receiveShadow>
+        <cylinderGeometry args={[0.22, 0.22, poleHeight, 32]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.36} metalness={0.2} />
       </mesh>
 
@@ -130,6 +170,15 @@ export function HelixTower({
           ))}
         </group>
       ))}
+
+      <mesh
+        geometry={finishGeometry}
+        material={finishMaterial}
+        position={[0, finishY * displayScale, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+        castShadow
+      />
 
       {crashBursts.map((burst) => (
         <CrashBurst key={burst.id} burst={burst} displayScale={displayScale} />

@@ -120,21 +120,20 @@ function segmentAtBallAngle(platform: HelixPlatform, towerRotation: number) {
 
 function createPlatform(index: number, levelNumber: number): HelixPlatform {
   const step = (Math.PI * 2) / PLATFORM_PARTS;
-  const segmentArc = step * 0.9;
-  const gapIndex = (index * 3 + levelNumber) % PLATFORM_PARTS;
+  const segmentArc = step;
+  const dangerAnchor = (index * 3 + levelNumber) % PLATFORM_PARTS;
   const samePlatformDangerParts = Math.min(
     PLATFORM_PARTS - PLATFORM_SAFE_PARTS,
     1 + Math.floor((levelNumber + index) / 15),
   );
   const dangerIndexes = new Set(
     Array.from({ length: PLATFORM_PARTS }, (_, slot) => slot)
-      .filter((slot) => slot !== gapIndex)
       .sort(
         (left, right) =>
-          ((left - gapIndex + PLATFORM_PARTS) % PLATFORM_PARTS) -
-          ((right - gapIndex + PLATFORM_PARTS) % PLATFORM_PARTS),
+          ((left - dangerAnchor + PLATFORM_PARTS) % PLATFORM_PARTS) -
+          ((right - dangerAnchor + PLATFORM_PARTS) % PLATFORM_PARTS),
       )
-      .slice(1, samePlatformDangerParts + 1),
+      .slice(0, samePlatformDangerParts),
   );
 
   return {
@@ -144,10 +143,6 @@ function createPlatform(index: number, levelNumber: number): HelixPlatform {
     baseRotation: MathUtils.degToRad(index * UNITY_PLATFORM_OFFSET_ANGLE),
     color: `hsl(${(185 + index * 9 + levelNumber * 17) % 360}, 78%, 54%)`,
     segments: Array.from({ length: PLATFORM_PARTS }, (_, slot) => {
-      if (slot === gapIndex) {
-        return null;
-      }
-
       const center = slot * step;
 
       return {
@@ -156,7 +151,7 @@ function createPlatform(index: number, levelNumber: number): HelixPlatform {
         endAngle: center + segmentArc / 2,
         kind: dangerIndexes.has(slot) ? "danger" : "safe",
       } satisfies HelixSegment;
-    }).filter((segment): segment is HelixSegment => segment !== null),
+    }),
   };
 }
 
@@ -252,6 +247,8 @@ function GameScene({
 
     const previousBallBottom = previousY - BALL_RADIUS_UNITY;
     const currentBallBottom = runtime.ballY - BALL_RADIUS_UNITY;
+    const previousBallTop = previousY + BALL_RADIUS_UNITY;
+    const currentBallTop = runtime.ballY + BALL_RADIUS_UNITY;
 
     for (const platform of level) {
       if (runtime.clearedIds.has(platform.id)) {
@@ -259,20 +256,34 @@ function GameScene({
       }
 
       const platformTop = platform.y + PLATFORM_TOP_OFFSET;
-      const crossed =
+      const platformBottom = platform.y - PLATFORM_TOP_OFFSET;
+      const crossedDown =
         previousBallBottom >= platformTop - COLLISION_EPSILON &&
         currentBallBottom <= platformTop + COLLISION_EPSILON;
+      const crossedUp =
+        previousBallTop <= platformBottom + COLLISION_EPSILON &&
+        currentBallTop >= platformBottom - COLLISION_EPSILON;
 
-      if (!crossed) {
+      if (!crossedDown && !crossedUp) {
         continue;
       }
 
       const segment = segmentAtBallAngle(platform, towerRotationRef.current ?? 0);
 
       if (!segment) {
+        runtime.destroyedIds.add(platform.id);
         runtime.clearedIds.add(platform.id);
         publishSnapshot();
         continue;
+      }
+
+      if (crossedUp) {
+        runtime.ballY = platformBottom - BALL_RADIUS_UNITY;
+        runtime.velocityY = -UNITY_JUMP_FORCE * 0.65;
+        runtime.combo = 0;
+        runtime.contactSeconds = 0.12;
+        publishSnapshot();
+        break;
       }
 
       if (!runtime.isSmashing) {
