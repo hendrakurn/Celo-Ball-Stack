@@ -36,6 +36,7 @@ export type GameRuntime = {
   score: number;
   combo: number;
   destroyedIds: Set<string>;
+  clearedIds: Set<string>;
   destroyedForCharge: number;
   chargeSeconds: number;
   invincibleSecondsLeft: number;
@@ -52,6 +53,7 @@ export type GameSnapshot = {
   chargeRatio: number;
   invincibleRatio: number;
   destroyedIds: Set<string>;
+  clearedIds: Set<string>;
   crashBursts: CrashBurst[];
   isSmashing: boolean;
 };

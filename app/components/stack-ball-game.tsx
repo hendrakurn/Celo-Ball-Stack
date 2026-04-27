@@ -57,6 +57,7 @@ const BOUNCE_VELOCITY = -940;
 const FALL_ACCELERATION = 1950;
 const SMASH_ACCELERATION = 4100;
 const MAX_FALL_SPEED = 1180;
+const COLLISION_EPSILON = 0.1;
 const DANGER_EDGE_GRACE = 3;
 
 function normalizeAngle(angle: number) {
@@ -221,8 +222,8 @@ export function StackBallGame() {
 
         for (const platform of platforms) {
           const crossedPlatform =
-            previousBallY + BALL_RADIUS <= platform.y &&
-            state.ballY + BALL_RADIUS >= platform.y;
+            previousBallY + BALL_RADIUS <= platform.y + COLLISION_EPSILON &&
+            state.ballY + BALL_RADIUS >= platform.y - COLLISION_EPSILON;
 
           if (crossedPlatform === false) {
             continue;
@@ -232,6 +233,16 @@ export function StackBallGame() {
           const segment = getSegmentAtAngle(platform, angle);
 
           if (!segment) {
+            platform.destroyed = true;
+            state.destroyedCount += 1;
+
+            if (state.destroyedCount === state.platforms.length) {
+              state.status = "won";
+              state.isPressing = false;
+              state.ballVelocity = 0;
+              break;
+            }
+
             continue;
           }
 

@@ -33,6 +33,7 @@ const BALL_RADIUS_UNITY = BALL_RENDER_RADIUS / DISPLAY_SCALE;
 const PLATFORM_RENDER_THICKNESS = 0.28;
 const PLATFORM_TOP_OFFSET = PLATFORM_RENDER_THICKNESS / DISPLAY_SCALE / 2;
 const PLATFORM_COUNT = 50;
+const FINISH_PLATFORM_OFFSET = UNITY_PLATFORM_OFFSET_HEIGHT;
 const BALL_TRACK_Y = 1.8;
 const BALL_ANGLE = (Math.PI * 3) / 2;
 const SECONDS_PER_PLATFORM = 0.15;
@@ -40,6 +41,7 @@ const INVINCIBLE_SECONDS = 3;
 const PLATFORMS_TO_ENABLE_INDICATOR = 10;
 const SECONDS_TO_ENABLE_INVINCIBLE = 4;
 const MAX_FRAME_DELTA = 1 / 30;
+const COLLISION_EPSILON = 0.0001;
 const DANGER_COLLISION_GRACE = MathUtils.degToRad(2.5);
 
 
@@ -59,6 +61,7 @@ function createRuntime(levelNumber = 1): GameRuntime {
     score: 0,
     combo: 0,
     destroyedIds: new Set<string>(),
+    clearedIds: new Set<string>(),
     destroyedForCharge: 0,
     chargeSeconds: 0,
     invincibleSecondsLeft: 0,
@@ -73,10 +76,11 @@ function createSnapshot(runtime: GameRuntime, platformCount: number): GameSnapsh
     levelNumber: runtime.levelNumber,
     score: runtime.score,
     combo: runtime.combo,
-    progress: runtime.destroyedIds.size / platformCount,
+    progress: runtime.clearedIds.size / platformCount,
     chargeRatio: Math.min(1, runtime.chargeSeconds / SECONDS_TO_ENABLE_INVINCIBLE),
     invincibleRatio: runtime.invincibleSecondsLeft / INVINCIBLE_SECONDS,
     destroyedIds: new Set(runtime.destroyedIds),
+    clearedIds: new Set(runtime.clearedIds),
     crashBursts: runtime.crashBursts.map((burst) => ({ ...burst })),
     isSmashing: runtime.isSmashing,
   };
@@ -154,6 +158,12 @@ function createPlatform(index: number, levelNumber: number): HelixPlatform {
       } satisfies HelixSegment;
     }).filter((segment): segment is HelixSegment => segment !== null),
   };
+}
+
+function getFinishY(level: HelixPlatform[]) {
+  const lowestPlatform = level.at(-1);
+
+  return lowestPlatform ? lowestPlatform.y - FINISH_PLATFORM_OFFSET : -FINISH_PLATFORM_OFFSET;
 }
 
 export function createHelixLevel(
@@ -240,15 +250,18 @@ function GameScene({
 
     runtime.ballY += runtime.velocityY * frameDelta;
 
+    const previousBallBottom = previousY - BALL_RADIUS_UNITY;
+    const currentBallBottom = runtime.ballY - BALL_RADIUS_UNITY;
+
     for (const platform of level) {
-      if (runtime.destroyedIds.has(platform.id)) {
+      if (runtime.clearedIds.has(platform.id)) {
         continue;
       }
 
       const platformTop = platform.y + PLATFORM_TOP_OFFSET;
       const crossed =
-        previousY - BALL_RADIUS_UNITY > platformTop &&
-        runtime.ballY - BALL_RADIUS_UNITY <= platformTop;
+        previousBallBottom >= platformTop - COLLISION_EPSILON &&
+        currentBallBottom <= platformTop + COLLISION_EPSILON;
 
       if (!crossed) {
         continue;
@@ -257,6 +270,8 @@ function GameScene({
       const segment = segmentAtBallAngle(platform, towerRotationRef.current ?? 0);
 
       if (!segment) {
+        runtime.clearedIds.add(platform.id);
+        publishSnapshot();
         continue;
       }
 
@@ -287,6 +302,7 @@ function GameScene({
       }
 
       runtime.destroyedIds.add(platform.id);
+      runtime.clearedIds.add(platform.id);
       runtime.combo += 1;
       runtime.contactSeconds = 0.08;
       runtime.crashBursts.push({
@@ -328,7 +344,14 @@ function GameScene({
       publishSnapshot();
     }
 
-    if (runtime.destroyedIds.size >= level.length) {
+    const finishTop = getFinishY(level) + PLATFORM_TOP_OFFSET;
+    const crossedFinish =
+      runtime.clearedIds.size >= level.length &&
+      previousBallBottom >= finishTop - COLLISION_EPSILON &&
+      currentBallBottom <= finishTop + COLLISION_EPSILON;
+
+    if (crossedFinish) {
+      runtime.ballY = finishTop + BALL_RADIUS_UNITY;
       runtime.status = "won";
       runtime.isSmashing = false;
       runtime.velocityY = 0;
@@ -346,6 +369,7 @@ function GameScene({
         current.isSmashing !== runtime.isSmashing ||
         current.score !== runtime.score ||
         current.combo !== runtime.combo ||
+        current.progress !== runtime.clearedIds.size / level.length ||
         current.crashBursts.length !== runtime.crashBursts.length ||
         runtime.crashBursts.length > 0 ||
         current.invincibleRatio !== runtime.invincibleSecondsLeft / INVINCIBLE_SECONDS
@@ -371,6 +395,7 @@ function GameScene({
         crashBursts={snapshot.crashBursts}
         towerRotationRef={towerRotationRef}
         displayScale={DISPLAY_SCALE}
+        finishY={getFinishY(level)}
       />
     </group>
   );
