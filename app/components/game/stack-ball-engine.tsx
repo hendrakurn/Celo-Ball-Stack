@@ -9,6 +9,11 @@ import {
   type RefObject,
 } from "react";
 import { Group, MathUtils } from "three";
+import {
+  calculateRoundScore,
+  type GameAction,
+  type RoundResult,
+} from "@/lib/scoring";
 import { Ball } from "./ball";
 import {
   type GameRuntime,
@@ -48,6 +53,9 @@ const DANGER_COLLISION_GRACE = MathUtils.degToRad(2.5);
 
 type StackBallEngineProps = {
   initialLevel?: HelixPlatform[];
+  enabled?: boolean;
+  resetToken?: number;
+  onRoundEnd?: (result: RoundResult) => void;
   onScoreReceipt?: (receipt: ScoringReceipt) => void;
 };
 
@@ -196,6 +204,8 @@ function GameScene({
   runtimeRef,
   snapshotRef,
   towerRotationRef,
+  roundActionsRef,
+  maxComboRef,
   publishSnapshot,
   onScoreReceipt,
 }: {
@@ -204,6 +214,8 @@ function GameScene({
   runtimeRef: RefObject<GameRuntime>;
   snapshotRef: RefObject<GameSnapshot>;
   towerRotationRef: RefObject<number>;
+  roundActionsRef: RefObject<GameAction[]>;
+  maxComboRef: RefObject<number>;
   publishSnapshot: () => void;
   onScoreReceipt?: (receipt: ScoringReceipt) => void;
 }) {
@@ -315,6 +327,7 @@ function GameScene({
       runtime.destroyedIds.add(platform.id);
       runtime.clearedIds.add(platform.id);
       runtime.combo += 1;
+      maxComboRef.current = Math.max(maxComboRef.current, runtime.combo);
       runtime.contactSeconds = 0.08;
       runtime.crashBursts.push({
         id: `burst-${platform.id}-${runtime.combo}-${Date.now()}`,
@@ -327,6 +340,11 @@ function GameScene({
 
       const points = isInvincible ? 2 : 1;
       runtime.score += points;
+      roundActionsRef.current.push({
+        type: "stack",
+        timestamp: Date.now(),
+        id: platform.id,
+      });
 
       if (!isInvincible) {
         runtime.destroyedForCharge += 1;
@@ -414,6 +432,9 @@ function GameScene({
 
 export function StackBallEngine({
   initialLevel,
+  enabled = true,
+  resetToken = 0,
+  onRoundEnd,
   onScoreReceipt,
 }: StackBallEngineProps) {
   const initialRuntime = createRuntime(1);
@@ -423,6 +444,11 @@ export function StackBallEngine({
   );
   const runtimeRef = useRef<GameRuntime>(initialRuntime);
   const towerRotationRef = useRef(0);
+  const roundStartRef = useRef<number | null>(null);
+  const roundEndedRef = useRef(false);
+  const roundActionsRef = useRef<GameAction[]>([]);
+  const maxComboRef = useRef(0);
+  const resetTokenRef = useRef(resetToken);
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() =>
     createSnapshot(initialRuntime, level.length),
   );
@@ -436,21 +462,80 @@ export function StackBallEngine({
     setSnapshot(createSnapshot(runtimeRef.current, level.length));
   }, [level.length]);
 
-  const reset = (nextLevelNumber = levelNumber) => {
+  const reset = useCallback((nextLevelNumber = levelNumber) => {
     const nextLevel = createHelixLevel(PLATFORM_COUNT, nextLevelNumber);
 
     runtimeRef.current = createRuntime(nextLevelNumber);
     towerRotationRef.current = 0;
+    roundStartRef.current = null;
+    roundEndedRef.current = false;
+    roundActionsRef.current = [];
+    maxComboRef.current = 0;
     setLevelNumber(nextLevelNumber);
     setLevel(nextLevel);
     setSnapshot(createSnapshot(runtimeRef.current, nextLevel.length));
-  };
+  }, [levelNumber]);
+
+  useEffect(() => {
+    if (resetTokenRef.current === resetToken) {
+      return;
+    }
+
+    resetTokenRef.current = resetToken;
+    reset(snapshotRef.current.status === "won" ? levelNumber + 1 : levelNumber);
+  }, [levelNumber, reset, resetToken]);
+
+  useEffect(() => {
+    if (
+      roundEndedRef.current ||
+      (snapshot.status !== "lost" && snapshot.status !== "won")
+    ) {
+      return;
+    }
+
+    roundEndedRef.current = true;
+    const now = Date.now();
+    const reachedFinish = snapshot.status === "won";
+    const endAction: GameAction = {
+      type: reachedFinish ? "finish" : "gameover",
+      timestamp: now,
+      id: `${snapshot.levelNumber}-${snapshot.status}-${now}`,
+    };
+    const actions = [...roundActionsRef.current, endAction];
+    const timeSeconds = Math.max(
+      1,
+      Math.round((now - (roundStartRef.current ?? now)) / 1000),
+    );
+    const score = calculateRoundScore(
+      snapshot.score,
+      timeSeconds,
+      reachedFinish,
+      maxComboRef.current,
+    );
+
+    onRoundEnd?.({
+      stacksDestroyed: snapshot.score,
+      timeSeconds,
+      reachedFinish,
+      comboCount: maxComboRef.current,
+      score,
+      actions,
+    });
+  }, [onRoundEnd, snapshot]);
 
   const startSmash = useCallback(() => {
+    if (!enabled) {
+      return;
+    }
+
     const runtime = runtimeRef.current;
 
     if (runtime.status === "ready") {
       runtime.status = "playing";
+      roundStartRef.current = Date.now();
+      roundEndedRef.current = false;
+      roundActionsRef.current = [];
+      maxComboRef.current = 0;
     }
 
     if (runtime.status !== "playing") {
@@ -459,7 +544,7 @@ export function StackBallEngine({
 
     runtime.isSmashing = true;
     publishSnapshot();
-  }, [publishSnapshot]);
+  }, [enabled, publishSnapshot]);
 
   const stopSmash = useCallback(() => {
     runtimeRef.current.isSmashing = false;
@@ -467,6 +552,10 @@ export function StackBallEngine({
   }, [publishSnapshot]);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === "Space") {
         event.preventDefault();
@@ -509,6 +598,8 @@ export function StackBallEngine({
           runtimeRef={runtimeRef}
           snapshotRef={snapshotRef}
           towerRotationRef={towerRotationRef}
+          roundActionsRef={roundActionsRef}
+          maxComboRef={maxComboRef}
           publishSnapshot={publishSnapshot}
           onScoreReceipt={onScoreReceipt}
         />
