@@ -468,7 +468,10 @@ export function StackBallEngine({
     runtimeRef.current = createRuntime(nextLevelNumber);
     towerRotationRef.current = 0;
     roundStartRef.current = null;
-    roundEndedRef.current = false;
+    // Keep the previous round marked as ended until the next round actually starts.
+    // This prevents the stale won/lost snapshot from firing onRoundEnd again
+    // during the reset render after "Play Again".
+    roundEndedRef.current = true;
     roundActionsRef.current = [];
     maxComboRef.current = 0;
     setLevelNumber(nextLevelNumber);

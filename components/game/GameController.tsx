@@ -2,10 +2,12 @@
 
 import { useWallet } from "@/hooks/useWallet";
 import { useGame } from "@/hooks/useGame";
-import { CONTRACT_ADDRESS } from "@/lib/constants";
 import { formatAddress } from "@/lib/minipay";
 import type { RoundResult } from "@/lib/scoring";
 import { StackBallEntry } from "@/app/components/game/stack-ball-entry";
+import { GameNav } from "@/app/components/game/game-nav";
+import { StartGameButton } from "@/app/components/game/start-game-button";
+import { SubmitScoreButton } from "@/app/components/game/submit-score-button";
 
 export function GameController() {
   const { address, isConnected } = useWallet();
@@ -15,6 +17,12 @@ export function GameController() {
     roundCount,
     resetToken,
     txError,
+    hasActiveSession,
+    isPeriodExpired,
+    isPending,
+    isConfirming,
+    canSubmitScore,
+    submitWaitSeconds,
     startGame,
     continueGame,
     submitScore,
@@ -23,6 +31,7 @@ export function GameController() {
   } = useGame();
 
   const enabled = phase === "playing";
+  const isTxBusy = isPending || isConfirming;
 
   const handleRoundEnd = (result: RoundResult) => {
     onRoundEnd(result);
@@ -36,27 +45,32 @@ export function GameController() {
         onRoundEnd={handleRoundEnd}
       />
 
+      <GameNav />
+
+      {isPeriodExpired ? (
+        <div className="stackball-periodBanner">
+          Period ended, waiting for reward finalization
+        </div>
+      ) : null}
+
       {phase === "idle" && isConnected ? (
-        <>
-          <button
-            type="button"
-            className="stackball-startGate"
-            onClick={startGame}
-            disabled={!CONTRACT_ADDRESS}
-            aria-label="Start game onchain"
-          />
-          {!CONTRACT_ADDRESS ? (
-            <div className="stackball-configNotice">
-              Set NEXT_PUBLIC_CONTRACT_ADDRESS after deployment.
-            </div>
-          ) : null}
-        </>
+        <StartGameButton
+          onStart={startGame}
+          disabled={isPeriodExpired || hasActiveSession}
+          isBusy={isTxBusy}
+          isPeriodExpired={isPeriodExpired}
+          hasActiveSession={hasActiveSession}
+        />
       ) : null}
 
       {phase === "starting" ? (
         <div className="stackball-chainOverlay">
-          <strong>Confirming...</strong>
-          <span>Approve the start transaction in your wallet.</span>
+          <strong>{isConfirming ? "Starting..." : "Confirming..."}</strong>
+          <span>
+            {isConfirming
+              ? "Waiting for Celo confirmation."
+              : "Approve the start transaction in your wallet."}
+          </span>
           {txError ? <p>{txError}</p> : null}
         </div>
       ) : null}
@@ -70,15 +84,27 @@ export function GameController() {
             {totalScore.toLocaleString()}
           </strong>
           {txError ? <p>{txError}</p> : null}
+          {!txError && submitWaitSeconds > 0 ? (
+            <div className="stackball-submitHint">
+              Submit available in {submitWaitSeconds}s
+            </div>
+          ) : null}
           <div className="stackball-actionRow">
-            <button type="button" className="stackball-secondary" onClick={continueGame}>
-              Lanjut Main
+            <button
+              type="button"
+              className="stackball-secondary"
+              onClick={continueGame}
+              disabled={isPeriodExpired || isTxBusy}
+            >
+              Continue Playing
               <small>Gas fee required</small>
             </button>
-            <button type="button" className="stackball-primary" onClick={submitScore}>
-              Submit Skor
-              <small>Gas fee required</small>
-            </button>
+            <SubmitScoreButton
+              score={totalScore}
+              onSubmit={submitScore}
+              disabled={isPeriodExpired || !canSubmitScore}
+              isBusy={isTxBusy}
+            />
           </div>
           <small>{formatAddress(address ?? "")} on Celo</small>
         </div>
@@ -86,9 +112,13 @@ export function GameController() {
 
       {phase === "submitting" ? (
         <div className="stackball-chainOverlay">
-          <strong>Submitting Score...</strong>
+          <strong>{isConfirming ? "Saving Score..." : "Submitting Score..."}</strong>
           <b className="stackball-totalScore">{totalScore.toLocaleString()}</b>
-          <span>Approve the transaction to save your score onchain.</span>
+          <span>
+            {isConfirming
+              ? "Waiting for Celo confirmation."
+              : "Approve the transaction to save your score onchain."}
+          </span>
         </div>
       ) : null}
 
