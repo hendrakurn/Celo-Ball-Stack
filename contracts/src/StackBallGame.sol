@@ -1,31 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/**
- * @title StackBallGame
- * @notice Onchain leaderboard + prize distribution for Stack Ball Celo
- * @dev Deployed on Celo Mainnet. Prize pool funded by owner (developer).
- *      Players pay only gas fee to start game and submit score.
- *      Top 3 per 3-day period win CELO prizes automatically.
- */
-
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     constructor() {
-        _disableInitializers(); // ← wajib ada, blokir initialize di implementation langsung
+        _disableInitializers();
     }
 
     function initialize(address owner) public initializer {
         __Ownable_init(owner);
-        periodDuration = 3 days;
+        periodDuration = 7 days;
         periodStart = block.timestamp;
         periodNumber = 1;
-        prize1 = 15 ether;
-        prize2 = 13 ether;
-        prize3 = 10 ether;
+        prize1 = 10 ether;
+        prize2 = 7 ether;
+        prize3 = 5 ether;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyStackBallOwner {}
@@ -52,9 +44,18 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         bool isSubmitted;
     }
 
+    struct PeriodRewardSnapshot {
+        bool finalized;
+        uint256 finalizedAt;
+        address[3] winners;
+        uint256[3] rewards;
+        bool[3] claimed;
+    }
+
     uint256 public periodDuration;
     uint256 public periodStart;
     uint256 public periodNumber;
+    uint256 public latestFinalizedPeriod;
 
     uint256 public prize1;
     uint256 public prize2;
@@ -70,9 +71,22 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(address => bytes32) public activeSession;
     mapping(bytes32 => bool) public usedHashes;
     mapping(address => uint256) public lastSubmitTime;
+    mapping(address => uint256) public playerStatsPeriod;
+    mapping(uint256 => PeriodRewardSnapshot) private periodRewards;
 
     event GameStarted(address indexed player, bytes32 indexed sessionId, uint256 timestamp);
     event ScoreSubmitted(address indexed player, uint256 score, uint256 rank, uint256 periodNumber, uint256 timestamp);
+    event PeriodFinalized(
+        uint256 indexed periodNumber,
+        address winner1,
+        address winner2,
+        address winner3,
+        uint256 reward1,
+        uint256 reward2,
+        uint256 reward3,
+        uint256 timestamp
+    );
+    event RewardClaimed(address indexed winner, uint256 indexed periodNumber, uint256 amount, uint256 rank, uint256 timestamp);
     event RewardsDistributed(
         address indexed winner1,
         address indexed winner2,
@@ -91,18 +105,13 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     modifier periodActive() {
-        require(!_isPeriodExpired(), "StackBall: period expired, call distributeRewards");
+        require(!_isPeriodExpired(), "StackBall: period expired, call finalizePeriod");
         _;
     }
-    /*
-        constructor() {
-            owner = msg.sender;
-            periodStart = block.timestamp;
-            periodNumber = 1;
-        }
-    */
 
     function startGame() external periodActive returns (bytes32 sessionId) {
+        _syncPlayerPeriod(msg.sender);
+
         sessionId = keccak256(
             abi.encodePacked(msg.sender, block.timestamp, block.prevrandao, playerStats[msg.sender].totalGames)
         );
@@ -149,60 +158,43 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             stats.bestScore = totalScore;
         }
 
-        if (totalScore > stats.currentPeriodScore) {
-            stats.currentPeriodScore = totalScore;
-            stats.hasSubmittedThisPeriod = true;
-        } else {
-            emit ScoreSubmitted(msg.sender, totalScore, 0, periodNumber, block.timestamp);
-            return;
-        }
+        _syncPlayerPeriod(msg.sender);
+        stats.currentPeriodScore += totalScore;
+        stats.hasSubmittedThisPeriod = true;
 
-        uint256 rank = _updateLeaderboard(msg.sender, totalScore);
+        uint256 rank = _updateLeaderboard(msg.sender, stats.currentPeriodScore);
         stats.currentRank = rank;
 
-        emit ScoreSubmitted(msg.sender, totalScore, rank, periodNumber, block.timestamp);
+        emit ScoreSubmitted(msg.sender, stats.currentPeriodScore, rank, periodNumber, block.timestamp);
+    }
+
+    function finalizePeriod() external onlyStackBallOwner {
+        _finalizePeriod();
     }
 
     function distributeRewards() external onlyStackBallOwner {
-        require(_isPeriodExpired(), "StackBall: period not yet expired");
-        require(address(this).balance >= prize1 + prize2 + prize3, "StackBall: insufficient balance");
+        _finalizePeriod();
+    }
 
-        address winner1 = address(0);
-        address winner2 = address(0);
-        address winner3 = address(0);
-        uint256 paid1 = 0;
-        uint256 paid2 = 0;
-        uint256 paid3 = 0;
+    function claimReward(uint256 periodId) external {
+        (uint256 amount, uint256 rank, bool claimed, bool finalized) = _getClaimableReward(periodId, msg.sender);
 
-        uint256 len = leaderboard.length;
+        require(finalized, "StackBall: period not finalized");
+        require(amount > 0, "StackBall: no reward available");
+        require(!claimed, "StackBall: reward already claimed");
+        require(address(this).balance >= amount, "StackBall: insufficient balance");
 
-        if (len >= 1) {
-            winner1 = leaderboard[0].player;
-            paid1 = prize1;
-            (bool ok1,) = payable(winner1).call{value: paid1}("");
-            require(ok1, "StackBall: transfer to winner1 failed");
-        }
+        PeriodRewardSnapshot storage snapshot = periodRewards[periodId];
+        snapshot.claimed[rank - 1] = true;
 
-        if (len >= 2) {
-            winner2 = leaderboard[1].player;
-            paid2 = prize2;
-            (bool ok2,) = payable(winner2).call{value: paid2}("");
-            require(ok2, "StackBall: transfer to winner2 failed");
-        }
+        (bool ok,) = payable(msg.sender).call{value: amount}("");
+        require(ok, "StackBall: reward transfer failed");
 
-        if (len >= 3) {
-            winner3 = leaderboard[2].player;
-            paid3 = prize3;
-            (bool ok3,) = payable(winner3).call{value: paid3}("");
-            require(ok3, "StackBall: transfer to winner3 failed");
-        }
-
-        emit RewardsDistributed(winner1, winner2, winner3, paid1, paid2, paid3, periodNumber);
-        _resetPeriod();
+        emit RewardClaimed(msg.sender, periodId, amount, rank, block.timestamp);
     }
 
     function forceReset() external onlyStackBallOwner {
-        _resetPeriod();
+        _startNextPeriod();
     }
 
     function depositPrize() external payable onlyStackBallOwner {
@@ -232,7 +224,13 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function getPlayerStats(address player) external view returns (PlayerStats memory) {
-        return playerStats[player];
+        PlayerStats memory stats = playerStats[player];
+        if (playerStatsPeriod[player] != periodNumber) {
+            stats.currentPeriodScore = 0;
+            stats.currentRank = 0;
+            stats.hasSubmittedThisPeriod = false;
+        }
+        return stats;
     }
 
     function getContractBalance() external view returns (uint256) {
@@ -243,8 +241,42 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return _isPeriodExpired();
     }
 
+    function isPeriodFinalized(uint256 periodId) external view returns (bool) {
+        return periodRewards[periodId].finalized;
+    }
+
     function getPrizes() external view returns (uint256, uint256, uint256) {
         return (prize1, prize2, prize3);
+    }
+
+    function getPeriodWinners(uint256 periodId)
+        external
+        view
+        returns (address[3] memory winners, uint256[3] memory rewards, bool[3] memory claimed, bool finalized, uint256 finalizedAt)
+    {
+        PeriodRewardSnapshot storage snapshot = periodRewards[periodId];
+        return (snapshot.winners, snapshot.rewards, snapshot.claimed, snapshot.finalized, snapshot.finalizedAt);
+    }
+
+    function getClaimableReward(uint256 periodId, address player)
+        external
+        view
+        returns (uint256 amount, uint256 rank, bool claimed, bool finalized)
+    {
+        return _getClaimableReward(periodId, player);
+    }
+
+    function getLatestClaimableReward(address player)
+        external
+        view
+        returns (uint256 periodId, uint256 amount, uint256 rank, bool claimed, bool finalized)
+    {
+        periodId = latestFinalizedPeriod;
+        if (periodId == 0) {
+            return (0, 0, 0, false, false);
+        }
+
+        (amount, rank, claimed, finalized) = _getClaimableReward(periodId, player);
     }
 
     function getLeaderboardTop3()
@@ -267,11 +299,99 @@ contract StackBallGame is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
+    function _finalizePeriod() internal {
+        require(_isPeriodExpired(), "StackBall: period not yet expired");
+
+        uint256 finalizedPeriod = periodNumber;
+        PeriodRewardSnapshot storage snapshot = periodRewards[finalizedPeriod];
+        require(!snapshot.finalized, "StackBall: period already finalized");
+
+        uint256 requiredBalance = _requiredPrizePoolForLeaderboardLength(leaderboard.length);
+        require(address(this).balance >= requiredBalance, "StackBall: insufficient balance");
+
+        snapshot.finalized = true;
+        snapshot.finalizedAt = block.timestamp;
+
+        if (leaderboard.length >= 1) {
+            snapshot.winners[0] = leaderboard[0].player;
+            snapshot.rewards[0] = prize1;
+        }
+        if (leaderboard.length >= 2) {
+            snapshot.winners[1] = leaderboard[1].player;
+            snapshot.rewards[1] = prize2;
+        }
+        if (leaderboard.length >= 3) {
+            snapshot.winners[2] = leaderboard[2].player;
+            snapshot.rewards[2] = prize3;
+        }
+
+        latestFinalizedPeriod = finalizedPeriod;
+
+        emit PeriodFinalized(
+            finalizedPeriod,
+            snapshot.winners[0],
+            snapshot.winners[1],
+            snapshot.winners[2],
+            snapshot.rewards[0],
+            snapshot.rewards[1],
+            snapshot.rewards[2],
+            block.timestamp
+        );
+
+        _startNextPeriod();
+    }
+
+    function _getClaimableReward(uint256 periodId, address player)
+        internal
+        view
+        returns (uint256 amount, uint256 rank, bool claimed, bool finalized)
+    {
+        PeriodRewardSnapshot storage snapshot = periodRewards[periodId];
+        finalized = snapshot.finalized;
+
+        if (!finalized || player == address(0)) {
+            return (0, 0, false, finalized);
+        }
+
+        for (uint256 i = 0; i < 3; i++) {
+            if (snapshot.winners[i] == player) {
+                return (snapshot.rewards[i], i + 1, snapshot.claimed[i], true);
+            }
+        }
+
+        return (0, 0, false, true);
+    }
+
+    function _requiredPrizePoolForLeaderboardLength(uint256 len) internal view returns (uint256 total) {
+        if (len >= 1) {
+            total += prize1;
+        }
+        if (len >= 2) {
+            total += prize2;
+        }
+        if (len >= 3) {
+            total += prize3;
+        }
+    }
+
     function _isPeriodExpired() internal view returns (bool) {
         return block.timestamp >= periodStart + periodDuration;
     }
 
-    function _resetPeriod() internal {
+    function _syncPlayerPeriod(address player) internal {
+        if (playerStatsPeriod[player] == periodNumber) {
+            return;
+        }
+
+        playerStatsPeriod[player] = periodNumber;
+
+        PlayerStats storage stats = playerStats[player];
+        stats.currentPeriodScore = 0;
+        stats.currentRank = 0;
+        stats.hasSubmittedThisPeriod = false;
+    }
+
+    function _startNextPeriod() internal {
         delete leaderboard;
         periodNumber++;
         periodStart = block.timestamp;

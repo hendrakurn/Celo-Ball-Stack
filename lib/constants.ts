@@ -1,10 +1,12 @@
 import type { Address } from "viem";
+import {
+  CHAIN_ID as GENERATED_CHAIN_ID,
+  CONTRACT_ADDRESS as GENERATED_CONTRACT_ADDRESS,
+} from "@/lib/abi-contract/constants";
 
-export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as
-  | Address
-  | undefined;
+export const CONTRACT_ADDRESS = GENERATED_CONTRACT_ADDRESS as Address;
 
-export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 44787);
+export const CHAIN_ID: number = GENERATED_CHAIN_ID;
 
 export const IS_MAINNET = CHAIN_ID === 42220;
 
