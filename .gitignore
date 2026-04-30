@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Foundry build artifacts - generated, do not commit
+out/
+cache/
+
+# Broadcast logs - ignore individual runs, keep latest
+broadcast/**/run-[0-9]*.json
+
+contracts/out/
+contracts/cache/
+contracts/broadcast/**/run-[0-9]*.json
