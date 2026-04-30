@@ -5,8 +5,16 @@ import { GameController } from "@/components/game/GameController";
 import { useWallet } from "@/hooks/useWallet";
 
 export default function Home() {
-  const { isConnected, isMiniPayUser, connectWallet, isConnecting } =
+  const { isReady, isConnected, isMiniPayUser, connectWallet, isConnecting } =
     useWallet();
+
+  if (!isReady) {
+    return (
+      <main className="stackball-connectShell">
+        <div className="stackball-connectPanel">Loading...</div>
+      </main>
+    );
+  }
 
   if (isMiniPayUser && !isConnected) {
     return (

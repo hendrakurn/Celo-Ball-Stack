@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { injected } from "@wagmi/connectors";
 import { useAccount, useChainId, useConnect, useSwitchChain } from "wagmi";
 import { CHAIN_ID } from "@/lib/constants";
@@ -12,13 +12,19 @@ export function useWallet() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const autoConnectedRef = useRef(false);
+  const isReady = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const isMiniPayUser = isReady && isMiniPay();
 
   useEffect(() => {
-    if (isMiniPay() && !isConnected && !autoConnectedRef.current) {
+    if (isMiniPayUser && !isConnected && !autoConnectedRef.current) {
       autoConnectedRef.current = true;
       connect({ connector: injected() });
     }
-  }, [connect, isConnected]);
+  }, [connect, isConnected, isMiniPayUser]);
 
   useEffect(() => {
     if (isConnected && chainId !== CHAIN_ID) {
@@ -32,9 +38,10 @@ export function useWallet() {
 
   return {
     address,
+    isReady,
     isConnected,
     isConnecting,
-    isMiniPayUser: isMiniPay(),
+    isMiniPayUser,
     isCorrectChain: chainId === CHAIN_ID,
     connectWallet,
   };
