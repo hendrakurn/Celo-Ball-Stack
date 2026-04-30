@@ -1,4 +1,4 @@
-import { keccak256, toHex } from "viem";
+import { encodePacked, keccak256, type Address } from "viem";
 import { SCORING } from "./constants";
 
 export interface GameAction {
@@ -34,17 +34,16 @@ export function calculateRoundScore(
 }
 
 export function generateGameHash(
-  playerAddress: string,
-  sessionId: string,
-  allActions: GameAction[],
+  playerAddress: Address,
+  score: number,
+  sessionId: `0x${string}`,
 ): `0x${string}` {
-  const payload = [
-    playerAddress.toLowerCase(),
-    sessionId,
-    ...allActions.map((action) => `${action.type}:${action.timestamp}:${action.id}`),
-  ].join("|");
-
-  return keccak256(toHex(payload));
+  return keccak256(
+    encodePacked(
+      ["address", "uint256", "bytes32"],
+      [playerAddress, BigInt(score), sessionId],
+    ),
+  );
 }
 
 export function totalAccumulatedScore(rounds: RoundResult[]): number {

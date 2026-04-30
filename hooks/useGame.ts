@@ -1,16 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useWriteContract } from "wagmi";
-import { CONTRACT_ADDRESS } from "@/lib/constants";
-import { STACK_BALL_ABI } from "@/lib/contract";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  generateGameHash,
   totalAccumulatedScore,
   type GameAction,
   type RoundResult,
 } from "@/lib/scoring";
 import { useWallet } from "./useWallet";
+import { useGameSession } from "./useGameSession";
 
 export type GamePhase =
   | "idle"
@@ -22,18 +19,38 @@ export type GamePhase =
 
 export function useGame() {
   const { address } = useWallet();
+  const gameSession = useGameSession();
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [rounds, setRounds] = useState<RoundResult[]>([]);
-  const [sessionId, setSessionId] = useState("");
+  const [sessionId, setSessionId] = useState<`0x${string}` | null>(null);
+  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
   const [resetToken, setResetToken] = useState(0);
   const [txError, setTxError] = useState<string | null>(null);
   const allActions = useRef<GameAction[]>([]);
-  const { writeContractAsync } = useWriteContract();
+  const minimumDuration = 10_000;
+
+  useEffect(() => {
+    if (phase !== "round_over") {
+      return;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
+
+    return () => window.clearInterval(interval);
+  }, [phase]);
+
+  const elapsed = sessionStartedAt ? now - sessionStartedAt : 0;
+  const submitWaitSeconds =
+    phase === "round_over" && sessionStartedAt
+      ? Math.max(0, Math.ceil((minimumDuration - elapsed) / 1000))
+      : 0;
+  const canSubmitScore = submitWaitSeconds === 0;
 
   const startGame = useCallback(async () => {
     if (!address) return;
-    if (!CONTRACT_ADDRESS) {
-      setTxError("Contract address is not configured");
+    if (gameSession.isPeriodExpired) {
+      setTxError("Period ended, waiting for reset.");
       return;
     }
 
@@ -41,13 +58,9 @@ export function useGame() {
     setPhase("starting");
 
     try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: STACK_BALL_ABI,
-        functionName: "startGame",
-      });
-
-      setSessionId(`${address}-${hash}-${Date.now()}`);
+      const nextSessionId = await gameSession.startGame();
+      setSessionId(nextSessionId);
+      setSessionStartedAt(Date.now());
       setResetToken((token) => token + 1);
       setPhase("playing");
     } catch (err) {
@@ -56,7 +69,7 @@ export function useGame() {
       setTxError(message);
       setPhase(rounds.length > 0 ? "round_over" : "idle");
     }
-  }, [address, rounds.length, writeContractAsync]);
+  }, [address, gameSession, rounds.length]);
 
   const recordAction = useCallback((action: GameAction) => {
     allActions.current.push(action);
@@ -65,6 +78,7 @@ export function useGame() {
   const onRoundEnd = useCallback((result: RoundResult) => {
     setRounds((prev) => [...prev, result]);
     allActions.current.push(...result.actions);
+    setNow(Date.now());
     setPhase("round_over");
   }, []);
 
@@ -74,8 +88,8 @@ export function useGame() {
 
   const submitScore = useCallback(async () => {
     if (!address) return;
-    if (!CONTRACT_ADDRESS) {
-      setTxError("Contract address is not configured");
+    if (gameSession.isPeriodExpired) {
+      setTxError("Period ended, waiting for reset.");
       return;
     }
 
@@ -85,30 +99,40 @@ export function useGame() {
       return;
     }
 
+    if (!sessionId) {
+      setTxError("Start a game before submitting a score.");
+      return;
+    }
+
+    const elapsedBeforeSubmit = Date.now() - (sessionStartedAt ?? Date.now());
+
+    if (elapsedBeforeSubmit < minimumDuration) {
+      setTxError(
+        `Play at least 10 seconds before submitting. Wait ${Math.ceil(
+          (minimumDuration - elapsedBeforeSubmit) / 1000,
+        )}s.`,
+      );
+      return;
+    }
+
     setTxError(null);
     setPhase("submitting");
 
-    const gameHash = generateGameHash(address, sessionId, allActions.current);
-
     try {
-      await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: STACK_BALL_ABI,
-        functionName: "submitScore",
-        args: [BigInt(total), gameHash],
-      });
+      await gameSession.submitScore(total, sessionId);
       setPhase("done");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submit failed";
       setTxError(message);
       setPhase("round_over");
     }
-  }, [address, rounds, sessionId, writeContractAsync]);
+  }, [address, gameSession, rounds, sessionId, sessionStartedAt]);
 
   const resetSession = useCallback(() => {
     setPhase("idle");
     setRounds([]);
-    setSessionId("");
+    setSessionId(null);
+    setSessionStartedAt(null);
     setTxError(null);
     allActions.current = [];
     setResetToken((token) => token + 1);
@@ -120,7 +144,15 @@ export function useGame() {
     totalScore: totalAccumulatedScore(rounds),
     roundCount: rounds.length,
     resetToken,
-    txError,
+    txError: txError ?? gameSession.error,
+    sessionId,
+    hasActiveSession: gameSession.hasActiveSession,
+    isPeriodExpired: gameSession.isPeriodExpired,
+    isPending: gameSession.isPending,
+    isConfirming: gameSession.isConfirming,
+    isSuccess: gameSession.isSuccess,
+    canSubmitScore,
+    submitWaitSeconds,
     startGame,
     continueGame,
     submitScore,
