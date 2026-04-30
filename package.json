@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "forge:build": "cd contracts && forge build && node script/sync-abi.ts",
-    "forge:deploy": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url $CELO_TESTNET_RPC_URL --broadcast --private-key $PRIVATE_KEY && node script/sync-abi.js",
+    "forge:deploy": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url $CELO_TESTNET_RPC_URL --broadcast --private-key $PRIVATE_KEY && node script/sync-abi.ts",
     "lint": "eslint"
   },
   "dependencies": {
