@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useWallet } from "@/hooks/useWallet";
 import { useGame } from "@/hooks/useGame";
 import { formatAddress } from "@/lib/minipay";
@@ -127,9 +128,18 @@ export function GameController() {
           <strong>Score Submitted</strong>
           <b className="stackball-totalScore">{totalScore.toLocaleString()}</b>
           <span>Your score is now on the Celo leaderboard.</span>
-          <button type="button" className="stackball-primary" onClick={resetSession}>
-            Play Again
-          </button>
+          <div className="stackball-actionRow">
+            <button
+              type="button"
+              className="stackball-primary"
+              onClick={resetSession}
+            >
+              Play Again
+            </button>
+            <Link className="stackball-secondary" href="/leaderboard">
+              View Leaderboard
+            </Link>
+          </div>
         </div>
       ) : null}
     </div>

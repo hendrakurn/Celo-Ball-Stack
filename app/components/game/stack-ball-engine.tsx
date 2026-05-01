@@ -4,8 +4,10 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type RefObject,
 } from "react";
 import { Group, MathUtils } from "three";
@@ -48,8 +50,9 @@ const SECONDS_TO_ENABLE_INVINCIBLE = 4;
 const MAX_FRAME_DELTA = 1 / 30;
 const COLLISION_EPSILON = 0.0001;
 const DANGER_COLLISION_GRACE = MathUtils.degToRad(2.5);
-
-
+const MOBILE_CAMERA_WIDTH = 768;
+const MOBILE_PORTRAIT_RATIO = 0.72;
+const MOBILE_SMASH_WINDOW_MS = 180;
 
 type StackBallEngineProps = {
   initialLevel?: HelixPlatform[];
@@ -449,14 +452,49 @@ export function StackBallEngine({
   const roundActionsRef = useRef<GameAction[]>([]);
   const maxComboRef = useRef(0);
   const resetTokenRef = useRef(resetToken);
+  const smashStartedAtRef = useRef<number | null>(null);
+  const smashReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPressingRef = useRef(false);
   const [snapshot, setSnapshot] = useState<GameSnapshot>(() =>
     createSnapshot(initialRuntime, level.length),
   );
   const snapshotRef = useRef(snapshot);
+  const isMobilePortrait = useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") {
+        return () => {};
+      }
+
+      window.addEventListener("resize", onStoreChange);
+
+      return () => {
+        window.removeEventListener("resize", onStoreChange);
+      };
+    },
+    () =>
+      window.innerWidth <= MOBILE_CAMERA_WIDTH &&
+      window.innerWidth / Math.max(window.innerHeight, 1) < MOBILE_PORTRAIT_RATIO,
+    () => false,
+  );
+  const cameraSettings = useMemo(
+    () =>
+      isMobilePortrait
+        ? { position: [0, 3.15, 8.6] as [number, number, number], fov: 46 }
+        : { position: [0, 3.4, 7.2] as [number, number, number], fov: 42 },
+    [isMobilePortrait],
+  );
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useEffect(() => {
+    return () => {
+      if (smashReleaseTimeoutRef.current) {
+        clearTimeout(smashReleaseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const publishSnapshot = useCallback(() => {
     setSnapshot(createSnapshot(runtimeRef.current, level.length));
@@ -545,13 +583,44 @@ export function StackBallEngine({
       return;
     }
 
+    isPressingRef.current = true;
+    smashStartedAtRef.current = Date.now();
+    if (smashReleaseTimeoutRef.current) {
+      clearTimeout(smashReleaseTimeoutRef.current);
+      smashReleaseTimeoutRef.current = null;
+    }
     runtime.isSmashing = true;
     publishSnapshot();
   }, [enabled, publishSnapshot]);
 
   const stopSmash = useCallback(() => {
-    runtimeRef.current.isSmashing = false;
-    publishSnapshot();
+    isPressingRef.current = false;
+
+    if (smashReleaseTimeoutRef.current) {
+      clearTimeout(smashReleaseTimeoutRef.current);
+      smashReleaseTimeoutRef.current = null;
+    }
+
+    const startedAt = smashStartedAtRef.current;
+    const elapsed = startedAt ? Date.now() - startedAt : MOBILE_SMASH_WINDOW_MS;
+    const remaining = Math.max(0, MOBILE_SMASH_WINDOW_MS - elapsed);
+
+    const releaseSmash = () => {
+      if (isPressingRef.current) {
+        return;
+      }
+
+      runtimeRef.current.isSmashing = false;
+      smashReleaseTimeoutRef.current = null;
+      publishSnapshot();
+    };
+
+    if (remaining === 0) {
+      releaseSmash();
+      return;
+    }
+
+    smashReleaseTimeoutRef.current = setTimeout(releaseSmash, remaining);
   }, [publishSnapshot]);
 
   useEffect(() => {
@@ -591,7 +660,7 @@ export function StackBallEngine({
     >
       <Canvas
         shadows
-        camera={{ position: [0, 3.4, 7.2], fov: 42 }}
+        camera={cameraSettings}
         className="stackball-engineCanvas"
       >
         <fog attach="fog" args={["#8ed8ff", 8, 18]} />
