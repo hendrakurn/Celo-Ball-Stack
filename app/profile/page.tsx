@@ -25,7 +25,7 @@ export default function ProfilePage() {
         <div className="stackball-profileIdentity">
           <span>Wallet</span>
           {isConnected ? (
-             <strong>{address ?? ""}</strong>
+            <strong>{formatAddress(address ?? "")}</strong>
           ) : (
             <button
               type="button"
