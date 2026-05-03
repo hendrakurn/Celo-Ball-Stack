@@ -55,14 +55,6 @@ export function useGame() {
       return;
     }
 
-    if (gameSession.hasActiveSession && gameSession.currentSessionIsActive) {
-      setTxError(null);
-      setSessionId(gameSession.activeSession);
-      setSessionStartedAt(gameSession.currentSessionStartTime ?? Date.now());
-      setPhase("playing");
-      return;
-    }
-
     setTxError(null);
     setPhase("starting");
 
@@ -155,7 +147,7 @@ export function useGame() {
     resetToken,
     txError: txError ?? gameSession.error,
     sessionId,
-    hasActiveSession: gameSession.hasActiveSession,
+    hasActiveSession: false,
     isPeriodExpired: gameSession.isPeriodExpired,
     isPending: gameSession.isPending,
     isConfirming: gameSession.isConfirming,
