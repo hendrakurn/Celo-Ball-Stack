@@ -6,7 +6,14 @@ import { useWallet } from "@/hooks/useWallet";
 import { formatAddress } from "@/lib/minipay";
 
 export function GameNav() {
-  const { address, isConnected, isConnecting, connectWallet } = useWallet();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    connectWallet,
+    walletOptions,
+    activeConnectorName,
+  } = useWallet();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -43,16 +50,24 @@ export function GameNav() {
         {isConnected ? (
           <span className="stackball-gameNavWallet">
             {formatAddress(address ?? "")}
+            {activeConnectorName ? (
+              <small>{activeConnectorName}</small>
+            ) : null}
           </span>
         ) : (
-          <button
-            type="button"
-            className="stackball-gameNavButton"
-            onClick={connectWallet}
-            disabled={isConnecting}
-          >
-            {isConnecting ? "Connecting" : "Connect"}
-          </button>
+          <div className="stackball-inlineWalletOptions">
+            {(walletOptions.length > 0 ? walletOptions : [{ id: "default", name: "Wallet", isReady: true }]).map((wallet) => (
+              <button
+                key={wallet.id}
+                type="button"
+                className="stackball-gameNavButton"
+                onClick={() => connectWallet(wallet.id === "default" ? undefined : wallet.id)}
+                disabled={isConnecting || !wallet.isReady}
+              >
+                {isConnecting ? "Connecting" : wallet.name}
+              </button>
+            ))}
+          </div>
         )}
         <Link className="stackball-gameNavButton" href="/leaderboard">
           Leaderboard
@@ -105,19 +120,27 @@ export function GameNav() {
           {isConnected ? (
             <span className="stackball-gameNavWallet stackball-gameDrawerWallet">
               {formatAddress(address ?? "")}
+              {activeConnectorName ? (
+                <small>{activeConnectorName}</small>
+              ) : null}
             </span>
           ) : (
-            <button
-              type="button"
-              className="stackball-gameNavButton stackball-gameDrawerButton"
-              onClick={() => {
-                closeDrawer();
-                connectWallet();
-              }}
-              disabled={isConnecting}
-            >
-              {isConnecting ? "Connecting" : "Connect Wallet"}
-            </button>
+            <div className="stackball-drawerWalletOptions">
+              {(walletOptions.length > 0 ? walletOptions : [{ id: "default", name: "Wallet", isReady: true }]).map((wallet) => (
+                <button
+                  key={wallet.id}
+                  type="button"
+                  className="stackball-gameNavButton stackball-gameDrawerButton"
+                  onClick={() => {
+                    closeDrawer();
+                    connectWallet(wallet.id === "default" ? undefined : wallet.id);
+                  }}
+                  disabled={isConnecting || !wallet.isReady}
+                >
+                  {isConnecting ? "Connecting" : `Connect ${wallet.name}`}
+                </button>
+              ))}
+            </div>
           )}
           <Link
             className="stackball-gameNavButton stackball-gameDrawerButton"

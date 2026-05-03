@@ -18,7 +18,8 @@ export type GamePhase =
   | "done";
 
 export function useGame() {
-  const { address } = useWallet();
+  const { address, chainId, isConnected, isCorrectChain, activeConnectorName } =
+    useWallet();
   const gameSession = useGameSession();
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [rounds, setRounds] = useState<RoundResult[]>([]);
@@ -48,7 +49,18 @@ export function useGame() {
   const canSubmitScore = submitWaitSeconds === 0;
 
   const startGame = useCallback(async () => {
-    if (!address) return;
+    if (!isConnected || !address) {
+      setTxError("Connect a wallet before starting a game.");
+      return;
+    }
+
+    if (!isCorrectChain) {
+      setTxError(
+        `Switch ${activeConnectorName ?? "your wallet"} to Celo Sepolia before starting.`,
+      );
+      return;
+    }
+
     if (gameSession.isPeriodExpired) {
       setTxError("Period ended, waiting for reset.");
       return;
@@ -77,7 +89,14 @@ export function useGame() {
       setTxError(message);
       setPhase(rounds.length > 0 ? "round_over" : "idle");
     }
-  }, [address, gameSession, rounds.length]);
+  }, [
+    activeConnectorName,
+    address,
+    gameSession,
+    isConnected,
+    isCorrectChain,
+    rounds.length,
+  ]);
 
   const recordAction = useCallback((action: GameAction) => {
     allActions.current.push(action);
@@ -153,12 +172,15 @@ export function useGame() {
     roundCount: rounds.length,
     resetToken,
     txError: txError ?? gameSession.error,
+    chainId,
     sessionId,
     hasActiveSession: gameSession.hasActiveSession,
     isPeriodExpired: gameSession.isPeriodExpired,
     isPending: gameSession.isPending,
     isConfirming: gameSession.isConfirming,
     isSuccess: gameSession.isSuccess,
+    lastTxHash: gameSession.lastTxHash,
+    lastAction: gameSession.lastAction,
     canSubmitScore,
     submitWaitSeconds,
     startGame,
