@@ -124,6 +124,18 @@ export function useGameSession() {
       refetchInterval: 15_000,
     },
   });
+  const activeSession = (activeSessionQuery.data ?? ZERO_BYTES32) as Hex;
+  const currentSessionQuery = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: StackBallGameABI,
+    chainId: CHAIN_ID,
+    functionName: "sessions",
+    args: [activeSession],
+    query: {
+      enabled: activeSession !== ZERO_BYTES32,
+      refetchInterval: 15_000,
+    },
+  });
   const expiredQuery = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: StackBallGameABI,
@@ -261,7 +273,12 @@ export function useGameSession() {
     ],
   );
 
-  const activeSession = (activeSessionQuery.data ?? ZERO_BYTES32) as Hex;
+  const currentSession = currentSessionQuery.data;
+  const currentSessionStartTime =
+    currentSession && typeof currentSession[1] === "bigint"
+      ? Number(currentSession[1]) * 1000
+      : null;
+  const currentSessionIsActive = Boolean(currentSession?.[2]);
 
   return {
     startGame,
@@ -269,6 +286,8 @@ export function useGameSession() {
     sessionId,
     activeSession,
     hasActiveSession: activeSession !== ZERO_BYTES32,
+    currentSessionStartTime,
+    currentSessionIsActive,
     isPeriodExpired: Boolean(expiredQuery.data),
     isPending,
     isConfirming,
@@ -277,6 +296,7 @@ export function useGameSession() {
     lastTxHash,
     lastAction,
     refetchActiveSession: activeSessionQuery.refetch,
+    refetchCurrentSession: currentSessionQuery.refetch,
     refetchPeriodExpired: expiredQuery.refetch,
   };
 }

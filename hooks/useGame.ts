@@ -54,6 +54,14 @@ export function useGame() {
       return;
     }
 
+    if (gameSession.hasActiveSession && gameSession.currentSessionIsActive) {
+      setTxError(null);
+      setSessionId(gameSession.activeSession);
+      setSessionStartedAt(gameSession.currentSessionStartTime ?? Date.now());
+      setPhase("playing");
+      return;
+    }
+
     setTxError(null);
     setPhase("starting");
 

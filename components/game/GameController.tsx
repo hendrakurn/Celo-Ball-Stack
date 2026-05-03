@@ -57,7 +57,7 @@ export function GameController() {
       {phase === "idle" && isConnected ? (
         <StartGameButton
           onStart={startGame}
-          disabled={isPeriodExpired || hasActiveSession}
+          disabled={isPeriodExpired}
           isBusy={isTxBusy}
           isPeriodExpired={isPeriodExpired}
           hasActiveSession={hasActiveSession}

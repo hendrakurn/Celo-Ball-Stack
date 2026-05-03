@@ -18,7 +18,7 @@ export function StartGameButton({
   const reason = isPeriodExpired
     ? "Period ended, waiting for reset"
     : hasActiveSession
-      ? "Active session already exists"
+      ? "Resume your active session"
       : "Gas fee required";
 
   return (
@@ -29,7 +29,7 @@ export function StartGameButton({
         onClick={onStart}
         disabled={disabled || isBusy}
       >
-        {isBusy ? "Starting..." : "Start Game"}
+        {isBusy ? "Starting..." : hasActiveSession ? "Resume Game" : "Start Game"}
         <small>{reason}</small>
       </button>
     </div>
