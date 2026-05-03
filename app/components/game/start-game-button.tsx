@@ -6,7 +6,6 @@ type StartGameButtonProps = {
   isBusy?: boolean;
   isPeriodExpired?: boolean;
   hasActiveSession?: boolean;
-  isWrongChain?: boolean;
 };
 
 export function StartGameButton({
@@ -15,15 +14,12 @@ export function StartGameButton({
   isBusy = false,
   isPeriodExpired = false,
   hasActiveSession = false,
-  isWrongChain = false,
 }: StartGameButtonProps) {
   const reason = isPeriodExpired
     ? "Period ended, waiting for reset"
-    : isWrongChain
-      ? "Switch wallet to Celo Sepolia"
-      : hasActiveSession
-        ? "Resume your active session"
-        : "Gas fee required";
+    : hasActiveSession
+      ? "Resume your active session"
+      : "Gas fee required";
 
   return (
     <div className="stackball-startOverlay">

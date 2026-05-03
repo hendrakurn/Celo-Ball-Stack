@@ -30,7 +30,7 @@ export default function ProfilePage() {
             <button
               type="button"
               className="stackball-primary"
-              onClick={() => connectWallet()}
+              onClick={connectWallet}
               disabled={isConnecting}
             >
               {isConnecting ? "Connecting..." : "Connect Wallet"}

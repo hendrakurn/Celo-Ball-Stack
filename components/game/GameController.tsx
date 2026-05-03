@@ -11,13 +11,7 @@ import { StartGameButton } from "@/app/components/game/start-game-button";
 import { SubmitScoreButton } from "@/app/components/game/submit-score-button";
 
 export function GameController() {
-  const {
-    address,
-    isConnected,
-    chainId,
-    isCorrectChain,
-    activeConnectorName,
-  } = useWallet();
+  const { address, isConnected } = useWallet();
   const {
     phase,
     totalScore,
@@ -28,11 +22,8 @@ export function GameController() {
     isPeriodExpired,
     isPending,
     isConfirming,
-    isSuccess,
     canSubmitScore,
     submitWaitSeconds,
-    lastAction,
-    lastTxHash,
     startGame,
     continueGame,
     submitScore,
@@ -64,54 +55,13 @@ export function GameController() {
       ) : null}
 
       {phase === "idle" && isConnected ? (
-        <>
-          <StartGameButton
-            onStart={startGame}
-            disabled={isPeriodExpired || !isCorrectChain}
-            isBusy={isTxBusy}
-            isPeriodExpired={isPeriodExpired}
-            hasActiveSession={hasActiveSession}
-            isWrongChain={!isCorrectChain}
-          />
-          {txError ? (
-            <div className="stackball-startDebug" role="status" aria-live="polite">
-              <strong>Start Game Failed</strong>
-              <p>{txError}</p>
-              <dl>
-                <div>
-                  <dt>Wallet</dt>
-                  <dd>{activeConnectorName ?? "Unknown"}</dd>
-                </div>
-                <div>
-                  <dt>Chain</dt>
-                  <dd>{chainId ?? "Unknown"}</dd>
-                </div>
-                <div>
-                  <dt>Correct chain</dt>
-                  <dd>{isCorrectChain ? "Yes" : "No"}</dd>
-                </div>
-                <div>
-                  <dt>Last action</dt>
-                  <dd>{lastAction ?? "None"}</dd>
-                </div>
-                <div>
-                  <dt>Confirming</dt>
-                  <dd>{isConfirming ? "Yes" : "No"}</dd>
-                </div>
-                <div>
-                  <dt>Success</dt>
-                  <dd>{isSuccess ? "Yes" : "No"}</dd>
-                </div>
-                {lastTxHash ? (
-                  <>
-                    <dt>Tx hash</dt>
-                    <dd className="stackball-hashValue">{lastTxHash}</dd>
-                  </>
-                ) : null}
-              </dl>
-            </div>
-          ) : null}
-        </>
+        <StartGameButton
+          onStart={startGame}
+          disabled={isPeriodExpired}
+          isBusy={isTxBusy}
+          isPeriodExpired={isPeriodExpired}
+          hasActiveSession={hasActiveSession}
+        />
       ) : null}
 
       {phase === "starting" ? (

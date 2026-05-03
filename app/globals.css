@@ -508,57 +508,6 @@ h2,
   box-shadow: 0 20px 50px rgba(14, 116, 144, 0.28);
 }
 
-.stackball-startDebug {
-  position: absolute;
-  right: 20px;
-  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
-  z-index: 6;
-  display: grid;
-  gap: 10px;
-  width: min(360px, calc(100vw - 40px));
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
-  border-radius: 8px;
-  background: rgba(8, 18, 38, 0.72);
-  color: #ffffff;
-  box-shadow: 0 18px 40px rgba(7, 23, 39, 0.2);
-  backdrop-filter: blur(14px);
-}
-
-.stackball-startDebug strong {
-  font-size: 0.98rem;
-}
-
-.stackball-startDebug p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.82rem;
-}
-
-.stackball-startDebug dl {
-  display: grid;
-  grid-template-columns: minmax(88px, auto) 1fr;
-  gap: 8px 10px;
-  margin: 0;
-  font-size: 0.78rem;
-}
-
-.stackball-startDebug dt {
-  color: rgba(255, 255, 255, 0.58);
-  font-weight: 700;
-}
-
-.stackball-startDebug dd {
-  margin: 0;
-  min-width: 0;
-  color: #fde68a;
-  overflow-wrap: anywhere;
-}
-
-.stackball-hashValue {
-  color: #ffffff;
-}
-
 .stackball-gameInfoDock {
   position: absolute;
   top: 18px;
@@ -616,35 +565,9 @@ h2,
 
 .stackball-gameNavWallet {
   min-width: 112px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
   background: rgba(15, 63, 93, 0.08);
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.stackball-gameNavWallet small {
-  color: rgba(15, 63, 93, 0.62);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.stackball-inlineWalletOptions,
-.stackball-drawerWalletOptions,
-.stackball-walletOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.stackball-inlineWalletOptions {
-  gap: 8px;
-}
-
-.stackball-drawerWalletOptions {
-  display: grid;
-  gap: 12px;
 }
 
 .stackball-hamburgerButton,
@@ -1286,21 +1209,6 @@ h2,
   opacity: 0.68;
 }
 
-.stackball-walletOptions {
-  width: min(100%, 680px);
-}
-
-.stackball-walletOptions .stackball-connectButton {
-  flex: 1 1 220px;
-}
-
-.stackball-inlineNotice {
-  display: block;
-  max-width: 36rem;
-  color: #fee2e2;
-  overflow-wrap: anywhere;
-}
-
 .stackball-leaderboard {
   width: 100%;
   max-width: 420px;
@@ -1556,13 +1464,6 @@ h2,
     padding: 20px 16px max(24px, env(safe-area-inset-bottom, 0px));
   }
 
-  .stackball-startDebug {
-    right: 12px;
-    left: 12px;
-    bottom: calc(40px + env(safe-area-inset-bottom, 0px));
-    width: auto;
-  }
-
   .stackball-chainOverlay strong {
     font-size: clamp(1.6rem, 9vw, 2.8rem);
   }
@@ -1634,8 +1535,7 @@ h2,
   }
 
   .stackball-prizeStrip,
-  .stackball-actionRow,
-  .stackball-walletOptions {
+  .stackball-actionRow {
     width: 100%;
   }
 

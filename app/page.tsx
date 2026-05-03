@@ -5,15 +5,8 @@ import { GameController } from "@/components/game/GameController";
 import { useWallet } from "@/hooks/useWallet";
 
 export default function Home() {
-  const {
-    isReady,
-    isConnected,
-    isMiniPayUser,
-    connectWallet,
-    isConnecting,
-    walletOptions,
-    connectError,
-  } = useWallet();
+  const { isReady, isConnected, isMiniPayUser, connectWallet, isConnecting } =
+    useWallet();
 
   if (!isReady) {
     return (
@@ -47,33 +40,14 @@ export default function Home() {
               <span>3rd 5 CELO</span>
             </div>
             {!isMiniPayUser ? (
-              <div className="stackball-walletOptions">
-                {walletOptions.length > 0 ? (
-                  walletOptions.map((wallet) => (
-                    <button
-                      key={wallet.id}
-                      type="button"
-                      className="stackball-connectButton"
-                      onClick={() => connectWallet(wallet.id)}
-                      disabled={isConnecting || !wallet.isReady}
-                    >
-                      {isConnecting ? "Connecting..." : `Connect ${wallet.name}`}
-                    </button>
-                  ))
-                ) : (
-                  <button
-                    type="button"
-                    className="stackball-connectButton"
-                    onClick={() => connectWallet()}
-                    disabled={isConnecting}
-                  >
-                    {isConnecting ? "Connecting..." : "Connect Wallet to Play"}
-                  </button>
-                )}
-              </div>
-            ) : null}
-            {connectError ? (
-              <small className="stackball-inlineNotice">{connectError}</small>
+              <button
+                type="button"
+                className="stackball-connectButton"
+                onClick={connectWallet}
+                disabled={isConnecting}
+              >
+                {isConnecting ? "Connecting..." : "Connect Wallet to Play"}
+              </button>
             ) : null}
             <small>Pay only gas fee</small>
           </section>
